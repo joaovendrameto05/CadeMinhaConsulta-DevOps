@@ -1,0 +1,34 @@
+{
+  "tabela_1_TB_CMC_UNIDADE": {
+    "endpoint_base": "/api/unidades",
+    "CREATE_POST": {
+      "nome": "AME Vila Mariana",
+      "cnes": "2089123",
+      "cidade": "São Paulo",
+      "uf": "SP"
+    },
+    "UPDATE_PUT": {
+      "nome": "AME Vila Mariana - Unidade Integrada SUS",
+      "cnes": "2089123",
+      "cidade": "São Paulo",
+      "uf": "SP"
+    },
+    "SQL_VALIDACAO_PERSISTENCIA": "SELECT * FROM TB_CMC_UNIDADE ORDER BY ID_UNIDADE;"
+  },
+  "tabela_2_TB_CMC_ESPECIALIDADE": {
+    "endpoint_base": "/api/especialidades",
+    "CREATE_POST": {
+      "nome": "Ortopedia Adulto",
+      "codigoSigtap": "0301010072",
+      "valorSigtap": 10.79,
+      "idUnidade": 1
+    },
+    "UPDATE_PUT": {
+      "nome": "Ortopedia e Traumatologia Especializada",
+      "codigoSigtap": "0301010072",
+      "valorSigtap": 90.36,
+      "idUnidade": 1
+    },
+    "SQL_VALIDACAO_PERSISTENCIA": "SELECT * FROM TB_CMC_ESPECIALIDADE ORDER BY ID_ESPECIALIDADE;"
+  }
+}

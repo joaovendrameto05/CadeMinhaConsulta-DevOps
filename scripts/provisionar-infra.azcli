@@ -1,0 +1,63 @@
+#!/bin/bash
+# =========================================================================
+# GLOBAL SOLUTION 2026/2 - CITIZENTECH | DEVOPS TOOLS & CLOUD COMPUTING
+# Script Azure CLI de Provisionamento de Infraestrutura em Nuvem (ACR + ACI)
+# Grupo: Celtics Tech | Representante: João Victor Vendrameto (RM563665)
+# =========================================================================
+
+RESOURCE_GROUP="rg-cademinhaconsulta-gs"
+LOCATION="brazilsouth"
+ACR_NAME="acrcademinhaconsultarm563665"
+ACI_MONGO_NAME="aci-mongodb-cmc-rm563665"
+ACI_API_NAME="aci-api-cmc-rm563665"
+DNS_MONGO="cmc-mongo-rm563665"
+DNS_API="cmc-api-rm563665"
+IMAGE_NAME="cademinhaconsulta-api:latest"
+
+echo "1. Criando Resource Group no Azure ($LOCATION)..."
+az group create --name $RESOURCE_GROUP --location $LOCATION
+
+echo "2. Criando Azure Container Registry (ACR)..."
+az acr create --resource-group $RESOURCE_GROUP --name $ACR_NAME --sku Basic --admin-enabled true
+
+echo "3. Provisionando Banco NoSQL MongoDB em Container na Nuvem (ACI)..."
+az container create \
+  --resource-group $RESOURCE_GROUP \
+  --name $ACI_MONGO_NAME \
+  --image mongo:8.0 \
+  --os-type Linux \
+  --cpu 1 \
+  --memory 1.5 \
+  --ip-address Public \
+  --dns-name-label $DNS_MONGO \
+  --ports 27017
+
+MONGO_FQDN=$(az container show --resource-group $RESOURCE_GROUP --name $ACI_MONGO_NAME --query ipAddress.fqdn -o tsv)
+
+echo "4. Obtendo credenciais do ACR..."
+ACR_SERVER=$(az acr show --name $ACR_NAME --resource-group $RESOURCE_GROUP --query loginServer -o tsv)
+ACR_USER=$(az acr credential show --name $ACR_NAME --resource-group $RESOURCE_GROUP --query username -o tsv)
+ACR_PASS=$(az acr credential show --name $ACR_NAME --resource-group $RESOURCE_GROUP --query "passwords[0].value" -o tsv)
+
+echo "5. Provisionando Container da API .NET 10 (ACI) em Nuvem..."
+az container create \
+  --resource-group $RESOURCE_GROUP \
+  --name $ACI_API_NAME \
+  --image "${ACR_SERVER}/${IMAGE_NAME}" \
+  --os-type Linux \
+  --cpu 1 \
+  --memory 1.5 \
+  --registry-login-server $ACR_SERVER \
+  --registry-username $ACR_USER \
+  --registry-password $ACR_PASS \
+  --ip-address Public \
+  --dns-name-label $DNS_API \
+  --ports 8080 \
+  --environment-variables \
+    ASPNETCORE_URLS="http://+:8080" \
+    ASPNETCORE_ENVIRONMENT="Development" \
+    Mongo__Database="cademinhaconsulta_prod" \
+    ConnectionStrings__Mongo="mongodb://${MONGO_FQDN}:27017" \
+    Oracle__Schema="$ORACLE_SCHEMA" \
+  --secure-environment-variables \
+    ConnectionStrings__Oracle="$ORACLE_CONNECTION_STRING"

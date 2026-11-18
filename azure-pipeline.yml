@@ -1,0 +1,80 @@
+trigger:
+  branches:
+    include:
+      - main
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  buildConfiguration: 'Release'
+  dotnetSdkVersion: '10.0.x'
+  IMAGE_NAME: 'cademinhaconsulta-api'
+
+stages:
+- stage: CI_Build_Test_Push
+  displayName: 'CI - Build, Testes xUnit, Docker ACR e Artefato'
+  jobs:
+  - job: BuildAndTest
+    displayName: 'Compilar, Testar (.NET 10) e Publicar no ACR'
+    steps:
+    - task: UseDotNet@2
+      displayName: '1. Instalar SDK do .NET 10.0'
+      inputs:
+        packageType: 'sdk'
+        version: '$(dotnetSdkVersion)'
+        includePreviewVersions: true
+
+    - task: DotNetCoreCLI@2
+      displayName: '2. Restaurar Pacotes NuGet (dotnet restore)'
+      inputs:
+        command: 'restore'
+        projects: 'CadeMinhaConsulta.slnx'
+
+    - task: DotNetCoreCLI@2
+      displayName: '3. Compilar Solução (dotnet build)'
+      inputs:
+        command: 'build'
+        projects: 'CadeMinhaConsulta.slnx'
+        arguments: '--configuration $(buildConfiguration) --no-restore'
+
+    - task: DotNetCoreCLI@2
+      displayName: '4. Executar Testes Automatizados xUnit (dotnet test)'
+      inputs:
+        command: 'test'
+        projects: 'tests/CadeMinhaConsulta.InfrastructureTests/CadeMinhaConsulta.InfrastructureTests.csproj'
+        arguments: '--configuration $(buildConfiguration) --no-build --logger trx'
+        publishTestResults: true
+
+    - task: DotNetCoreCLI@2
+      displayName: '5. Publicar Pacote da API (dotnet publish)'
+      inputs:
+        command: 'publish'
+        publishWebProjects: false
+        projects: 'src/CadeMinhaConsulta.Api/CadeMinhaConsulta.Api.csproj'
+        arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)/api'
+        zipAfterPublish: true
+
+    - script: |
+        docker login $(ACR_LOGIN_SERVER) -u $(ACR_USERNAME) -p $(ACR_PASSWORD)
+        docker build -f dockerfiles/Dockerfile -t $(ACR_LOGIN_SERVER)/$(IMAGE_NAME):$(Build.BuildId) -t $(ACR_LOGIN_SERVER)/$(IMAGE_NAME):latest .
+        docker push $(ACR_LOGIN_SERVER)/$(IMAGE_NAME):$(Build.BuildId)
+        docker push $(ACR_LOGIN_SERVER)/$(IMAGE_NAME):latest
+      displayName: '6. Build e Push da Imagem Docker para o ACR'
+
+    - task: CopyFiles@2
+      displayName: '7. Copiar Pastas /scripts e /dockerfiles para o Artefato'
+      inputs:
+        SourceFolder: '$(Build.SourcesDirectory)'
+        Contents: |
+          scripts/**
+          dockerfiles/**
+          README.md
+        TargetFolder: '$(Build.ArtifactStagingDirectory)'
+
+    - task: PublishBuildArtifacts@1
+      displayName: '8. Publicar Artefato (drop) para Acionar a Release'
+      inputs:
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+        ArtifactName: 'drop'
+        publishLocation: 'Container'
