@@ -16,13 +16,7 @@
 | Nicolas de Oliveira Jacob | 564205 | 2TDSPX | Backend Developer / Integração de Endpoints e Contratos |
 | Yuri Fuzinatto Garzoli Barreto | 561450 | 2TDSPX | .NET Lead Developer / Segurança JWT, Idempotência & Testes xUnit |
 
-* **Link da Organização no Azure DevOps:** `https://dev.azure.com/rm563365`
-* **Link do Projeto Oficial DevOps:** `https://dev.azure.com/rm563365/CadeMinhaConsulta-DevOps`
-* **Link Público da API em Nuvem (Swagger UI no Azure ACI):** `http://cmc-api-rm563665.brazilsouth.azurecontainer.io:8080/swagger/index.html`
-* **Endpoints de Monitoramento (Health Checks em Nuvem):**
-  * Liveness Probe: `http://cmc-api-rm563665.brazilsouth.azurecontainer.io:8080/health/live`
-  * Readiness Probe: `http://cmc-api-rm563665.brazilsouth.azurecontainer.io:8080/health/ready`
-
+* **Link da Organização no Azure DevOps:** https://dev.azure.com/rm563365/CadeMinhaConsulta-DevOps
 ---
 
 ## 2. Conceito da Solução Proposta (CitizenTech — ODS 3 e ODS 10)
