@@ -1,165 +1,318 @@
-# Cadê Minha Consulta .NET
+# Cadê Minha Consulta — Solução CitizenTech (.NET 10, DevOps & Cloud Computing)
 
-API ASP.NET Core Minimal API com alvo `net10.0`. A arquitetura prevê que o Mobile React Native acesse Java e .NET diretamente. Java é responsável por usuários, pacientes, consultas, confirmações, cancelamentos, fila e realocação no Oracle DBv3. A API .NET lê o Oracle por EF Core e usa MongoDB para seus próprios dados. A validação JWT é local.
+**FIAP • 2º Ano Análise e Desenvolvimento de Sistemas • Global Solution 2026/2 (CitizenTech)**  
+**Disciplinas Integradas:** DevOps Tools & Cloud Computing • Advanced Business Development with .NET • Compliance, Quality Assurance & Tests • Mastering Relational and Non-Relational Database  
+**Grupo:** Celtics Tech
 
-Consulte a [arquitetura](docs/Arquitetura.md), a [configuração Oracle DBv3](docs/Oracle-DBv3.md), as [evidências de validação](docs/Validacao-DotNet.md) e o [roteiro para a banca](docs/Roteiro-Demonstracao.md).
+## 1. Identificação da Equipe (Grupo Celtics Tech)
 
-## Executar localmente
+| Nome Completo do Integrante | RM | Turma | Papel no Projeto |
+| :--- | :---: | :---: | :--- |
+| **João Victor Vendrameto** | 563665 | 2TDSPV | Cloud & DevOps Engineer / QA Lead |
+| **Gabriel Ambrósio Saraiva** | 566552 | 2TDSPV | Scrum Master / Arquitetura & Documentação |
+| **Vinicius Romaguera Cardozo** | 562308 | 2TDSPX | Backend Developer / Modelagem de Dados |
+| **Nicolas de Oliveira Jacob** | 564205 | 2TDSPX | Backend Developer / Fluxos de Regulação |
+| **Yuri Fuzinatto Garzoli Barreto** | 561450 | 2TDSPX | .NET Lead Developer / Segurança JWT & Testes xUnit |
 
-Use o SDK .NET 10 ou um SDK posterior compatível e o runtime ASP.NET Core 10.
+* **Organização no Azure DevOps:** `https://dev.azure.com/rm563365`
+* **Projeto Oficial DevOps:** `https://dev.azure.com/rm563365/CadeMinhaConsulta-DevOps`
 
-No Windows, baixe o MongoDB Community 8.0.38 portátil e confira o SHA-256 do ZIP. Extraia `mongod.exe` em `.local/mongodb/mongodb-win32-x86_64-windows-8.0.38/bin/` ou passe seu caminho em `-MongoExecutable`. O script reutiliza `.local/mongodb/data` e abre a porta 27017 apenas em `127.0.0.1`. Depois de entrar novamente no Windows, inicie o processo pelo script. A opção `-Foreground` permite encerrar com Ctrl+C. A inicialização em segundo plano espera a abertura da porta e recusa iniciar se ela já estiver ocupada. Use essa instância exclusiva de loopback para dados de desenvolvimento. [ZIP oficial](https://fastdl.mongodb.org/windows/mongodb-windows-x86_64-8.0.38.zip) · [SHA-256 oficial](https://fastdl.mongodb.org/windows/mongodb-windows-x86_64-8.0.38.zip.sha256)
+---
 
-```powershell
-.\tools\Start-LocalMongo.ps1 -Foreground
+## 2. Conceito da Solução CitizenTech e Problema Resolvido (ODS 3 e ODS 10)
+
+A plataforma **Cadê Minha Consulta** é uma solução **CitizenTech** voltada à redução do absenteísmo em consultas e exames especializados da rede pública de saúde (**SUS**) e ao reaproveitamento automático de vagas ociosas em tempo hábil:
+* **Problema Real:** O não comparecimento (absenteísmo) atinge entre 25% e 38% dos agendamentos ambulatoriais do SUS, causado principalmente pelo desconhecimento da data agendada (61,2%), esquecimento (23,5%), falta de transporte (29,0%) ou falha de contato por telefone desatualizado (14,5%).
+* **Benefício ao Cidadão e ao Gestor Público:** A solução oferece confirmação antecipada com 1 toque, atualização cadastral rápida, liberação remota de vaga com preservação do encaminhamento, motor de regras de lembrete com idempotência, notificações sincronizadas e gestão de unidades de saúde e especialidades médicas da tabela SUS/SIGTAP.
+* **Conexão com a Agenda 2030 da ONU:** **ODS 3** (Saúde e Bem-Estar) e **ODS 10** (Redução das Desigualdades).
+
+---
+
+## 3. Desenho Macro da Arquitetura (DevOps & Cloud Computing)
+
+A arquitetura foi projetada em nuvem utilizando **Microsoft Azure (ACR + ACI)** integrado ao **Oracle Database Cloud (FIAP)** e ao **MongoDB 8.0 em Container (ACI)**, com ciclo completo de **CI/CD automatizado no Azure DevOps**:
+
+### 3.1 Diagrama de Arquitetura e Fluxo CI/CD (Visualização Direta)
+
+```text
++---------------------------------------------------------------------------------------------------+
+|                             1. CICLO DEVOPS (AZURE DEVOPS - RM563365)                             |
+|                                                                                                   |
+|  +----------------------+      +-------------------------+      +------------------------------+  |
+|  |     AZURE BOARDS     | ---> |       AZURE REPOS       | ---> |     AZURE PIPELINES (CI)     |  |
+|  | - Work Items (Scrum) |      | - Git Privado           |      | - Build .NET 10.0 SDK        |  |
+|  | - Tasks Vinculadas   |      | - Branch Main Protegida |      | - Testes Automáticos (xUnit) |  |
+|  |   a Branches e PRs   |      | - Pull Request + Merge  |      | - Docker Build & Push p/ ACR |  |
+|  +----------------------+      +-------------------------+      | - Publica Artefato (drop)    |  |
+|                                                                 +--------------+---------------+  |
+|                                                                                |                  |
+|                                                                      Gatilho Automático (CD)      |
+|                                                                                v                  |
+|                                                                 +------------------------------+  |
+|                                                                 |   AZURE PIPELINES (RELEASE)  |  |
+|                                                                 | - Deploy Automático via      |  |
+|                                                                 |   Azure CLI + Env Variables  |  |
+|                                                                 +--------------+---------------+  |
++--------------------------------------------------------------------------------|------------------+
+                                                                                 |
+                                                                                 v
++---------------------------------------------------------------------------------------------------+
+|                     2. INFRAESTRUTURA EM NUVEM (MICROSOFT AZURE & ORACLE CLOUD)                   |
+|                         Resource Group: rg-cademinhaconsulta-gs (brazilsouth)                     |
+|                                                                                                   |
+|  +----------------------------------+            +---------------------------------------------+  |
+|  |   AZURE CONTAINER REGISTRY (ACR) | ---------> |      AZURE CONTAINER INSTANCES (ACI)        |  |
+|  |   acrcademinhaconsultarm563665   |  Pull Img  |      Container: aci-api-cmc-rm563665        |  |
+|  | - Repositório:                   |            | - ASP.NET Core 10 Minimal API (Porta 8080)  |  |
+|  |   cademinhaconsulta-api:latest   |            | - Swagger OpenAPI / JWT RS256 / Rate Limit  |  |
+|  +----------------------------------+            +------+-------------------------------+------+  |
+|                                                         |                               |         |
+|                                     ODP.NET / EF Core   |                               | Driver  |
+|                                     (Porta 1521 - TCP)  |                               | (27017) |
+|                                                         v                               v         |
+|                              +------------------------------------+   +------------------------+  |
+|                              |     ORACLE DATABASE CLOUD FIAP     |   |  AZURE ACI (MONGODB 8) |  |
+|                              |      oracle.fiap.com.br (ORCL)     |   | aci-mongodb-cmc-rm563665|  |
+|                              | - TB_CMC_UNIDADE (CRUD Completo)   |   | - Collection:          |  |
+|                              | - TB_CMC_ESPECIALIDADE (CRUD)      |   |   reminder_rules (CRUD)|  |
+|                              | - TB_GS_CONSULTA (Leitura/Status)  |   | - Collection:          |  |
+|                              +------------------------------------+   |   notifications        |  |
+|                                                                       +------------------------+  |
++---------------------------------------------------------------------------------------------------+
+                                                         ^
+                                                         | HTTPS / REST JSON
+                                           +-------------+-------------+
+                                           |   CONSUMIDORES / CLIENTES |
+                                           | - App Mobile React Native |
+                                           | - Painel Gestor SUS       |
+                                           | - Swagger UI / Postman    |
+                                           +---------------------------+
 ```
 
-No ambiente validado, a conexão local e o banco `vagacerta_dev` já estão em User Secrets. Nas demais máquinas, configure `ConnectionStrings:Mongo` e `Mongo:Database` em **Gerenciar Segredos do Usuário** no projeto `CadeMinhaConsulta.Api`. Para o Oracle, configure `ConnectionStrings:Oracle` e `Oracle:Schema` no mesmo local quando houver um DBv3 de teste disponível. Use uma conta somente leitura e mantenha os valores fora do repositório.
+```mermaid
+flowchart TB
+    subgraph DevOps["1. Ciclo DevOps (Azure DevOps)"]
+        AB["Azure Boards (Processo Scrum)\nTasks vinculadas a Branches/PRs"] --> AR["Azure Repos (Git Privado)\nBranch Main Protegida + Políticas"]
+        AR -->|"Merge via Pull Request"| CI["Pipeline de Build (CI)\nazure-pipeline.yml\nBuild .NET 10 + Testes xUnit + Push ACR"]
+        CI -->|"Artefato 'drop' + Trigger Contínuo"| CD["Pipeline de Release (CD)\nDeploy Automático Azure CLI\nInjeção de Variáveis de Ambiente"]
+    end
 
-### Visual Studio
+    subgraph AzureCloud["2. Infraestrutura em Nuvem (Azure brazilsouth & Oracle Cloud)"]
+        ACR["Azure Container Registry (ACR)\nacrcademinhaconsultarm563665.azurecr.io"]
+        ACI_API["Azure Container Instances (ACI)\naci-api-cmc-rm563665 (API .NET 10)\nPorta 8080 / Swagger / HealthChecks"]
+        ACI_MONGO[("Container MongoDB 8.0 (ACI)\naci-mongodb-cmc-rm563665:27017\nCollections: reminder_rules & notifications")]
+        ORACLE[("Oracle Database Cloud FIAP\noracle.fiap.com.br:1521/ORCL\nTabelas: TB_CMC_UNIDADE,\nTB_CMC_ESPECIALIDADE, TB_GS_CONSULTA")]
+    end
 
-1. Abra `CadeMinhaConsulta.slnx` no Visual Studio com o workload de desenvolvimento web ASP.NET e selecione `CadeMinhaConsulta.Api` como projeto de inicialização.
-2. No PowerShell 7, gere os tokens locais de teste com `$tokens = & .\tools\New-DevelopmentJwt.ps1 -SavePublicSettings`. Essa opção atualiza as configurações locais de validação JWT para o emissor de demonstração e grava apenas a parte pública em User Secrets. Copie o token desejado com `$tokens.Gestor | Set-Clipboard` ou `$tokens.Cidadao | Set-Clipboard`.
-3. Execute o perfil **CadeMinhaConsulta.Api** com F5 ou Ctrl+F5. O perfil abre o Swagger em `http://localhost:5050`. Clique em **Authorize** e cole o token. Regenere os tokens após 30 minutos.
+    CI -->|"Docker Push"| ACR
+    CD -->|"Az CLI Container Create"| ACI_API
+    ACR -->|"Docker Pull"| ACI_API
+    ACI_API -->|"ODP.NET Core / SQL"| ORACLE
+    ACI_API -->|"MongoDB.Driver"| ACI_MONGO
+    Client["App Mobile React Native / Gestor SUS / Swagger"] -->|"HTTP/REST JSON (Porta 8080)"| ACI_API
+```
 
-### Terminal
+### 3.2 Legenda e Fluxo Detalhado dos Componentes da Arquitetura
+
+| Camada / Componente | Tecnologia / Recurso em Nuvem | Responsabilidade no Fluxo da Solução |
+| :--- | :--- | :--- |
+| **1. Gestão Ágil (Boards)** | Azure Boards (Processo Scrum) | Rastreabilidade ponta a ponta: toda alteração nasce em uma *Task*, que é vinculada à *Branch*, ao *Commit* (`#ID`) e ao *Pull Request*. |
+| **2. Versionamento (Repos)** | Azure Repos (Git Privado) | Código-fonte com branch `main` protegida por políticas: revisor obrigatório (RM563665), vínculo obrigatório de Work Item e autoaprovação habilitada para simulação. |
+| **3. Integração Contínua (CI)** | Azure Pipelines (`azure-pipeline.yml`) | Acionada exclusivamente após *Merge* na `main` via PR. Restaura pacotes, compila em `.NET 10.0`, executa os **47 testes automatizados xUnit**, faz *build/push* da imagem Docker para o ACR e publica o artefato `drop`. |
+| **4. Entrega Contínua (CD)** | Azure Release Pipelines | Acionada automaticamente (*Continuous Deployment Trigger*) assim que a CI gera um novo artefato. Executa script Azure CLI atualizando o container da API no ACI com variáveis seguras. |
+| **5. Registro de Imagens** | Azure Container Registry (`ACR`) | Armazena de forma privada e versionada as imagens Docker da aplicação (`cademinhaconsulta-api:$(Build.BuildId)` e `:latest`). |
+| **6. Aplicação Backend** | Azure Container Instances (`ACI`) | Hospeda a API **ASP.NET Core 10 Minimal API** em container Linux na nuvem (`brazilsouth`), expondo o Swagger (`/swagger`), Health Checks (`/health/live` e `/health/ready`) e endpoints REST. |
+| **7. Banco de Dados Relacional** | Oracle Database Cloud (`ORCL`) | Persistência relacional em nuvem das tabelas **`TB_CMC_UNIDADE`** (Unidades UBS/AME), **`TB_CMC_ESPECIALIDADE`** (Especialidades SIGTAP/SUS) e **`TB_GS_CONSULTA`**, com validação via `SELECT` direto no banco. |
+| **8. Banco de Dados NoSQL** | MongoDB 8.0 em Container (`ACI`) | Persistência orientada a documentos em nuvem para as coleções **`reminder_rules`** (regras de lembrete com controle de idempotência) e **`notifications`**. |
+
+---
+
+## 4. Estrutura Oficial de Pastas do Repositório
+
+O repositório segue estritamente a organização exigida pela disciplina de **DevOps Tools & Cloud Computing**:
+
+```text
+CadeMinhaConsulta-DevOps/
+├── azure-pipeline.yml                         # Pipeline oficial de CI (Build, Testes xUnit, Push ACR e Artefato)
+├── CadeMinhaConsulta.slnx                     # Solução .NET 10.0
+├── README.md                                  # Documentação geral, Arquitetura Macro e JSONs de CRUD
+├── .gitignore                                 # Proteção contra versionamento de segredos e binários
+├── dockerfiles/                               # Pasta obrigatória de containerização (Requisito 12)
+│   └── Dockerfile                             # Multi-stage build (.NET 10.0 SDK -> ASP.NET Core 10.0 Runtime)
+├── scripts/                                   # Pasta obrigatória de scripts de banco e nuvem (Requisitos 09, 10 e 11)
+│   ├── script-bd.sql                          # DDL das tabelas Oracle, carga inicial e SELECTs de validação
+│   ├── provisionar-infra.azcli                # Script Azure CLI para criação de RG, ACR e Containers ACI
+│   └── crud-tabelas.json                      # Massa de dados JSON pronta para execução dos CRUDs
+├── src/
+│   └── CadeMinhaConsulta.Api/                 # Projeto principal ASP.NET Core 10 Minimal API
+│       ├── Program.cs                         # Configuração de DI, Swagger, Rate Limiting, JWT, HealthChecks e Rotas
+│       ├── Features/
+│       │   ├── OracleCrud/                    # CRUD completo de 2 tabelas relacionais no Oracle (Unidades e Especialidades)
+│       │   ├── ReminderRules/                 # CRUD idempotente de Regras de Lembrete no MongoDB
+│       │   └── Notifications/                 # Sincronização e leitura de Notificações de Consultas
+│       └── Infrastructure/                    # Contexto EF Core Oracle, Stores MongoDB, HealthChecks e Autenticação JWT
+└── tests/
+    └── CadeMinhaConsulta.InfrastructureTests/ # Suíte com 47 testes automatizados xUnit executados no CI
+```
+
+---
+
+## 5. Payloads JSON para Execução do CRUD e Comprovação com `SELECT` no Banco
+
+Em cumprimento aos **Requisitos 14, 15 e 19** da disciplina de DevOps, a API expõe o CRUD completo (**Create, Read, Update, Delete**) em **duas tabelas relacionais no banco Oracle em nuvem** (`TB_CMC_UNIDADE` e `TB_CMC_ESPECIALIDADE`), além da coleção NoSQL no MongoDB (`reminder_rules`).
+
+### 5.1 Tabela 1 (Oracle Cloud): `TB_CMC_UNIDADE` — Endpoint: `/api/unidades`
+
+#### 1) CREATE — `POST /api/unidades`
+* **Request Body (JSON):**
+```json
+{
+  "nome": "AME Vila Mariana",
+  "cnes": "2089123",
+  "cidade": "São Paulo",
+  "uf": "SP"
+}
+```
+* **Response Esperado (`201 Created`):**
+```json
+{
+  "id": 2,
+  "nome": "AME Vila Mariana",
+  "cnes": "2089123",
+  "cidade": "São Paulo",
+  "uf": "SP",
+  "criadoEm": "2026-11-18T14:00:00Z"
+}
+```
+
+#### 2) READ — `GET /api/unidades` e `GET /api/unidades/{id}`
+* **Response Esperado (`200 OK`):** Retorna a lista completa de unidades ou o JSON da unidade consultada pelo `id`.
+
+#### 3) UPDATE — `PUT /api/unidades/{id}` (Ex.: `PUT /api/unidades/2`)
+* **Request Body (JSON):**
+```json
+{
+  "nome": "AME Vila Mariana - Unidade Integrada SUS",
+  "cnes": "2089123",
+  "cidade": "São Paulo",
+  "uf": "SP"
+}
+```
+* **Response Esperado (`200 OK`):** Retorna o objeto JSON com o campo `nome` atualizado.
+
+#### 4) DELETE — `DELETE /api/unidades/{id}` (Ex.: `DELETE /api/unidades/2`)
+* **Response Esperado:** `204 No Content`.
+
+#### 5) Comprovação Direta no Banco de Dados (Oracle SQL Developer)
+```sql
+SELECT ID_UNIDADE, NM_UNIDADE, CD_CNES, NM_CIDADE, SG_UF, DT_CRIACAO
+FROM TB_CMC_UNIDADE
+ORDER BY ID_UNIDADE;
+```
+
+---
+
+### 5.2 Tabela 2 (Oracle Cloud): `TB_CMC_ESPECIALIDADE` — Endpoint: `/api/especialidades`
+
+#### 1) CREATE — `POST /api/especialidades`
+* **Request Body (JSON):**
+```json
+{
+  "nome": "Ortopedia Adulto",
+  "codigoSigtap": "0301010072",
+  "valorSigtap": 10.79,
+  "idUnidade": 1
+}
+```
+* **Response Esperado (`201 Created`):**
+```json
+{
+  "id": 2,
+  "nome": "Ortopedia Adulto",
+  "codigoSigtap": "0301010072",
+  "valorSigtap": 10.79,
+  "idUnidade": 1,
+  "criadoEm": "2026-11-18T14:05:00Z"
+}
+```
+
+#### 2) READ — `GET /api/especialidades` e `GET /api/especialidades/{id}`
+* **Response Esperado (`200 OK`):** Retorna a lista de especialidades médicas vinculadas às unidades de saúde.
+
+#### 3) UPDATE — `PUT /api/especialidades/{id}` (Ex.: `PUT /api/especialidades/2`)
+* **Request Body (JSON):**
+```json
+{
+  "nome": "Ortopedia e Traumatologia Especializada",
+  "codigoSigtap": "0301010072",
+  "valorSigtap": 90.36,
+  "idUnidade": 1
+}
+```
+* **Response Esperado (`200 OK`):** Retorna o JSON atualizado com o novo nome e valor contratado (`90.36`).
+
+#### 4) DELETE — `DELETE /api/especialidades/{id}` (Ex.: `DELETE /api/especialidades/2`)
+* **Response Esperado:** `204 No Content`.
+
+#### 5) Comprovação Direta no Banco de Dados (Oracle SQL Developer)
+```sql
+SELECT ID_ESPECIALIDADE, NM_ESPECIALIDADE, CD_SIGTAP, VL_SIGTAP, ID_UNIDADE, DT_CRIACAO
+FROM TB_CMC_ESPECIALIDADE
+ORDER BY ID_ESPECIALIDADE;
+```
+
+---
+
+### 5.3 Tabela/Coleção 3 (MongoDB em Nuvem): `reminder_rules` — Endpoint: `/api/reminder-rules`
+
+*(Requer autenticação Bearer JWT com papel `GESTOR` e cabeçalho `Idempotency-Key: demo-regra-1` no `POST`)*
+
+* **CREATE (`POST /api/reminder-rules`):**
+```json
+{
+  "name": "Lembrete Antecipado 48h SUS",
+  "daysBefore": 2,
+  "message": "Confirme sua presença na consulta pelo aplicativo Cadê Minha Consulta.",
+  "isActive": true
+}
+```
+* **UPDATE (`PUT /api/reminder-rules/{id}`):**
+```json
+{
+  "name": "Lembrete Antecipado 24h SUS - Urgente",
+  "daysBefore": 1,
+  "message": "Sua consulta é amanhã! Confirme com 1 toque ou libere a vaga para a fila.",
+  "isActive": true
+}
+```
+* **READ (`GET /api/reminder-rules`)** e **DELETE (`DELETE /api/reminder-rules/{id}`)**.
+
+---
+
+## 6. Variáveis de Ambiente Configuradas nas Pipelines (Requisito 15)
+
+Nenhuma senha ou string de conexão sensível é armazenada no código-fonte. As Pipelines de Build (CI) e Release (CD) injetam as configurações de forma segura:
+
+| Variável na Pipeline / Container | Finalidade |
+| :--- | :--- |
+| `ACR_LOGIN_SERVER` | Servidor do Azure Container Registry (`acrcademinhaconsultarm563665.azurecr.io`) |
+| `ACR_USERNAME` / `ACR_PASSWORD` | Credenciais seguras para *push* e *pull* da imagem Docker no ACR (Secret) |
+| `RESOURCE_GROUP` | Grupo de recursos na nuvem Azure (`rg-cademinhaconsulta-gs`) |
+| `ConnectionStrings__Oracle` | String de conexão ODP.NET para o banco Oracle Cloud FIAP (Secret) |
+| `Oracle__Schema` | Schema proprietário das tabelas no Oracle (`RM561450` / `RM563665`) |
+| `ConnectionStrings__Mongo` | URI do container MongoDB 8.0 no Azure ACI (`mongodb://cmc-mongo-rm563665.brazilsouth.azurecontainer.io:27017`) |
+| `Mongo__Database` | Nome do database NoSQL em nuvem (`cademinhaconsulta_prod`) |
+| `ASPNETCORE_ENVIRONMENT` | Ambiente de execução do container (`Development` para habilitar interface Swagger UI em nuvem) |
+| `RateLimiting__PermitLimit` | Limite de requisições por minuto por usuário autenticado (Padrão: `60`, retornando `HTTP 429`) |
+
+---
+
+## 7. Execução Local e Testes Automatizados (xUnit)
+
+Para compilar a solução e executar os **47 testes automatizados (xUnit)** localmente via terminal:
 
 ```powershell
 dotnet restore CadeMinhaConsulta.slnx
-dotnet build CadeMinhaConsulta.slnx --no-restore
-dotnet test CadeMinhaConsulta.slnx --no-build --no-restore
-$env:ASPNETCORE_ENVIRONMENT = 'Development'
-dotnet run --project src/CadeMinhaConsulta.Api -- --urls http://localhost:5050
+dotnet build CadeMinhaConsulta.slnx --configuration Release --no-restore
+dotnet test CadeMinhaConsulta.slnx --configuration Release --no-build
 ```
-
-Use HTTP apenas para rodar localmente no loopback. Use HTTPS no ambiente acessado pelo Mobile. Configure as variáveis de ambiente abaixo ou use User Secrets no projeto da API em desenvolvimento.
-
-| Variável | Valor esperado |
-|---|---|
-| `ConnectionStrings__Oracle` | Conexão Oracle com uma conta dedicada. A conta precisa de permissão de sessão e de leitura sobre `TB_GS_CONSULTA` no schema proprietário. |
-| `Oracle__Schema` | Nome do schema proprietário do DBv3, conforme cadastrado no Oracle. |
-| `ConnectionStrings__Mongo` | URI do MongoDB do ambiente. |
-| `Mongo__Database` | Banco reservado para os dados .NET do Cadê Minha Consulta. |
-| `Jwt__Issuer` | Emissor acordado com Java. |
-| `Jwt__Audience` | Audiência .NET acordada com Java. |
-| `Jwt__PublicKeyPem` | Conteúdo PEM da chave pública RSA. Em PowerShell, use `Get-Content -Raw` para ler o arquivo da chave pública. |
-| `Jwt__OracleUserIdClaim` | Nome da claim assinada que contém o `ID_USUARIO` numérico. Configure `sub` somente se a equipe Java confirmar esse vínculo. |
-| `Jwt__RoleClaim` | Nome da claim assinada com os perfis. O padrão da API é `role`. Confirme o nome e os valores com a equipe Java para usar tokens reais. |
-| `RateLimiting__PermitLimit` | Limite por `sub` autenticado, por janela de um minuto e por instância. Padrão de 60. |
-
-## Verificar a infraestrutura
-
-| Requisição | Resultado esperado |
-|---|---|
-| `GET /health/live` | HTTP 200 quando o processo atende requisições. |
-| `GET /health/ready` | HTTP 200 exclusivamente quando todos os checks obrigatórios estão saudáveis. Dependência degradada, falha ou configuração incompleta retornam HTTP 503. O JSON indica o estado separado de Oracle e MongoDB. |
-| `GET /api/diagnostics/auth` | Disponível em `Development`. HTTP 204 com token válido e `sub` presente. HTTP 401 para token ausente ou inválido, 403 para token válido sem `sub` e 429 após exceder o limite. |
-| `GET /swagger` | Interface Swagger em `Development`. O documento está em `/swagger/v1/swagger.json`. |
-
-O check Oracle faz um SELECT de até uma linha e omite os dados da resposta. Para validar a leitura real, use um DBv3 de teste já provisionado com ao menos uma consulta fictícia. Confirme que a conta .NET possui apenas as permissões de leitura necessárias e que o schema e as colunas correspondem ao mapeamento. O check MongoDB verifica conectividade por ping. Para validar a escrita na coleção, execute o teste pelo Swagger com uma consulta fictícia elegível.
-
-O validador inicial aceita RS256 com chave pública configurada, `iss`, `aud` e expiração. Confirme o algoritmo e as claims com a equipe Java e teste um token emitido por ela. Antes de liberar acesso a dados, valide a correspondência entre a identidade autenticada e `ID_USUARIO`, a faixa dos IDs e o fuso de `DATA_HORA_CONSULTA`.
-
-O DBv3 foi implantado no Oracle FIAP e validado com 13 tabelas ativas. O Kestrel retornou HTTP 200 em `/health/live` e `/health/ready`, com Oracle e MongoDB saudáveis. No fluxo real, as consultas de dois titulares fictícios foram conferidas contra SELECTs no Oracle. O MongoDB persistiu as notificações e o estado de leitura. Veja o [relatório de validação](docs/Validacao-DotNet.md) e o [registro da implantação](docs/Oracle-DBv3.md).
-
-## Notificações internas
-
-| Requisição | Comportamento |
-|---|---|
-| `GET /api/notifications/me` | Lê apenas as consultas do titular no Oracle e retorna HTTP 200 com as notificações desse usuário, inclusive as já observadas. Sem notificações, retorna `[]`. |
-| `PATCH /api/notifications/{id}/read` | Define `isRead` como `true`. Retorna HTTP 204 mesmo se a notificação já estiver lida. Um ID ausente ou pertencente a outro titular recebe o mesmo HTTP 404. |
-
-Ambas as rotas retornam HTTP 401 para token ausente ou inválido, HTTP 403 se a associação com o titular não puder ser determinada, HTTP 429 ao exceder o limite e HTTP 503 em falhas de dependência. O PATCH recebe apenas o ID na rota e usa exclusivamente o MongoDB.
-
-As notificações são atualizadas **mediante consulta do Mobile**. Para cada combinação de usuário, consulta e status observado (`AGENDADA`, `CONFIRMADA` ou `CANCELADA`), a API mantém um documento na coleção `notifications` do banco configurado em `Mongo__Database`. O `_id` é o SHA-256 dessa combinação e o índice único `_id_` é criado automaticamente pelo MongoDB. O upsert usa `$setOnInsert`, preservando o primeiro instante observado e o estado de leitura em consultas repetidas. `observedAtUtc` é o instante em que a API observou aquele estado pela primeira vez. Estados intermediários podem passar sem registro entre duas consultas. `appointmentAt` preserva o horário do `DATE` Oracle, sem atribuir offset antes de validar o fuso.
-
-### Testar pelo Swagger
-
-1. Configure os bancos de teste e os dados JWT acima. Use dois titulares com consultas fictícias `AGENDADA`, `CONFIRMADA` ou `CANCELADA`. Para a demonstração local, o povoamento validado contém os IDs de teste 2 e 3. Gere ambos os tokens na mesma sessão PowerShell com `$tokens = & .\tools\New-DevelopmentJwt.ps1 -TestPatientOracleId 2 -SecondTestPatientOracleId 3`.
-2. Inicie a API em `Development` conforme os comandos acima. Para testar a geração com Oracle real, confirme HTTP 200 no [readiness local](http://localhost:5050/health/ready). Com Oracle indisponível, o GET retorna 503. A marcação de leitura continua disponível para documentos que já existam no MongoDB.
-3. Abra o [Swagger local](http://localhost:5050/swagger). Clique em **Authorize** e cole o token do primeiro titular. Em desenvolvimento local, use `$tokens.Cidadao`. Para a integração com Java, use um JWT com o emissor, a audiência e as claims configurados. Confirme HTTP 204 no diagnóstico antes de consultar dados.
-4. Execute `GET /api/notifications/me` duas vezes e confira o mesmo ID para aquela consulta e status. Copie o ID e execute `PATCH /api/notifications/{id}/read` duas vezes. Ambos devem retornar 204 e o próximo GET deve trazer `isRead: true`.
-5. Autorize o segundo usuário fictício. Na demonstração local, use `$tokens.OutroCidadao`. O GET deve listar apenas o que pertence a ele. Um PATCH com o ID do primeiro usuário deve retornar 404.
-
-Exemplo fictício de GET:
-
-```json
-[
-  {
-    "id": "6d04f1e33113c473054da98807772f52d9e1f61d8f586dd5672ac5434770e453",
-    "appointmentId": "88",
-    "status": "AGENDADA",
-    "appointmentAt": "2026-12-01T09:30:00",
-    "observedAtUtc": "2026-11-17T12:00:00Z",
-    "isRead": false
-  }
-]
-```
-
-## Regras de lembrete
-
-O CRUD usa exclusivamente o MongoDB. Com o MongoDB configurado, o CRUD funciona enquanto o Oracle estiver indisponível. O readiness geral verifica os dois bancos e, nesse caso, retorna 503.
-
-| Requisição | Perfis | Sucesso |
-|---|---|---|
-| `GET /api/reminder-rules` | CIDADAO ou GESTOR | `200` com a lista. |
-| `GET /api/reminder-rules/{id}` | CIDADAO ou GESTOR | `200` com a regra. |
-| `POST /api/reminder-rules` | GESTOR | `201` com a regra original e o cabeçalho `Location`. |
-| `PUT /api/reminder-rules/{id}` | GESTOR | `200` com a regra atualizada. |
-| `DELETE /api/reminder-rules/{id}` | GESTOR | `204`. |
-
-POST e PUT exigem `name` com 1 a 100 caracteres, `daysBefore` inteiro de 0 a 365, `message` com 1 a 500 caracteres e `isActive` booleano. A API remove espaços nas extremidades do nome e da mensagem. As respostas incluem `createdAtUtc` e `updatedAtUtc`. Erros de entrada retornam 400, credenciais ausentes ou inválidas retornam 401, perfis insuficientes retornam 403, e regras ausentes ou excluídas retornam 404.
-
-### Idempotência do POST
-
-Envie um único cabeçalho `Idempotency-Key` com 1 a 128 caracteres ASCII. São aceitos letras, dígitos, ponto, hífen e sublinhado. A chave é sensível a maiúsculas e minúsculas. Use uma chave diferente para cada nova intenção de criação.
-
-O MongoDB mantém um documento em `reminder_rules` por combinação de emissor, `sub`, operação e chave. O hash dessa combinação é o `_id`, protegido pelo índice único `_id_`. Uma única inserção atômica grava a regra e a cópia da criação original, com confirmação por maioria e journal. A chave em texto e o identificador do usuário ficam fora do documento. Uma repetição com os mesmos campos validados devolve o mesmo `201`, `Location` e corpo inicial. Um conteúdo válido diferente retorna `409`. Um corpo inválido retorna `400` antes de consumir a chave.
-
-O PUT altera apenas a versão atual. O DELETE retira a regra das consultas e mantém o documento com a data de exclusão. A cópia original e a chave permanecem disponíveis para replay mesmo após edição, exclusão ou reinício da API. Não há expiração automática. Se uma falha deixar a confirmação da gravação indeterminada, a API retorna `503` e o cliente deve repetir com a mesma chave e corpo.
-
-### Demonstrar pelo Swagger sem depender do Java
-
-1. Configure a conexão e o nome de um banco MongoDB de teste, conforme a tabela de variáveis. No **PowerShell 7**, rode:
-
-   ```powershell
-   $tokens = & .\tools\New-DevelopmentJwt.ps1
-   dotnet run --project src/CadeMinhaConsulta.Api -- --urls http://localhost:5050
-   ```
-
-   O script cria uma chave RSA efêmera e tokens de 30 minutos para GESTOR e CIDADAO. A API rejeita o emissor de demonstração fora de `Development`. Para copiar um token na mesma sessão do PowerShell, use `$tokens.Gestor | Set-Clipboard` ou `$tokens.Cidadao | Set-Clipboard`. Se a API estiver rodando em primeiro plano, copie o token antes de iniciá-la ou use um servidor iniciado em background com a mesma configuração.
-2. Abra o [Swagger](http://localhost:5050/swagger). Sem autorizar, execute o GET e confira 401. Clique em **Authorize**, cole o token CIDADAO e confira que o GET retorna 200 e o POST retorna 403.
-3. Troque para o token GESTOR. Execute o POST com a chave `demo-regra-1` e o corpo abaixo. Use o ID ou o `Location` para testar GET, PUT e DELETE. No PUT, envie o corpo completo com os campos editáveis.
-
-   ```json
-   {
-     "name": "Lembrete de consulta",
-     "daysBefore": 2,
-     "message": "Confira o horário da sua consulta no aplicativo.",
-     "isActive": true
-   }
-   ```
-
-4. Repita o POST com a mesma chave e corpo. Confira o mesmo `201`, `Location` e corpo. Mude `daysBefore`, mantenha a chave e confira `409`. Use uma chave nova se a demonstração já tiver sido executada nesse banco com o mesmo usuário.
-5. Para demonstrar o limite, reinicie a API com `$env:RateLimiting__PermitLimit = '2'`. Com o mesmo JWT, faça três GETs dentro de um minuto. O terceiro retorna `429` com `Retry-After`. Um token com outro `sub` tem sua própria cota. Sem token o endpoint responde `401` antes do rate limiter por usuário.
-
-### Teste com MongoDB real
-
-Configure `VAGACERTA_TEST_MONGO_URI` e `VAGACERTA_TEST_MONGO_DATABASE` com um banco dedicado cujo nome comece com `vagacerta_test_`. Os testes usam o repositório MongoDB real, verificam os índices `_id_` e recriam o host da API. O teste de regras verifica concorrência, replay e CRUD. O de notificações usa consultas fictícias geradas pela suíte e verifica deduplicação, titularidade e persistência da leitura. Cada teste exclui apenas seu próprio documento ao final.
-
-```powershell
-$env:VAGACERTA_TEST_MONGO_URI = 'mongodb://127.0.0.1:27017'
-$env:VAGACERTA_TEST_MONGO_DATABASE = 'vagacerta_test_local'
-dotnet test CadeMinhaConsulta.slnx --filter 'Dependency=MongoDB'
-```
-
-Para incluir os dois cenários na suíte inteira, mantenha as variáveis configuradas e execute `dotnet test CadeMinhaConsulta.slnx`. Sem elas, esses dois testes são pulados. Os demais cenários cobrem HTTP em memória, JWT assinado para testes, BSON e SQL Oracle gerado.
-
-## Consumo pelo React Native
-
-O [contrato Mobile](docs/Contrato-Mobile.md) documenta a URL base por ambiente, autenticação e a tela de exemplo para listar regras. O backend respondeu à chamada HTTP de verificação. A execução e a captura no React Native dependem do projeto mantido pela equipe Mobile. O Swagger descreve todas as rotas disponíveis no perfil local, incluindo os endpoints públicos de saúde.
-
-## Entrega
-
-O [checklist de validação](docs/Validacao-DotNet.md) registra as evidências e pendências, e o [roteiro para a banca](docs/Roteiro-Demonstracao.md) relaciona cada critério aos arquivos e testes. A entrega .NET é um ZIP com o link real do repositório GitHub com README e o TXT de identificação dos cinco integrantes. Inclua o PowerPoint se houver. O ZIP preliminar e o TXT ficam em `.local/entrega`, fora do Git. Preencha o link verdadeiro antes do envio.
-
